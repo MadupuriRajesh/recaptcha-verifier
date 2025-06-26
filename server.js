@@ -6,16 +6,19 @@ const bodyParser = require("body-parser");
 dotenv.config();
 const app = express();
 
-// Middleware: Parse JSON and raw text (Marketo sends non-standard JSON sometimes)
+// Accept any incoming content type as raw text
 app.use(bodyParser.text({ type: "*/*" }));
 
 const PORT = process.env.PORT || 3000;
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
 
-// Endpoint to verify reCAPTCHA token
+// Verify reCAPTCHA token endpoint
 app.post("/verify-recaptcha", async (req, res) => {
-  let rawBody = req.body;
-  let parsedBody = null;
+  const rawBody = req.body;
+  let parsedBody;
+
+  // Log raw body (helpful for debugging Marketo payload issues)
+  console.log("📦 Raw body from Marketo:", rawBody);
 
   try {
     parsedBody = typeof rawBody === "string" ? JSON.parse(rawBody) : rawBody;
@@ -24,10 +27,11 @@ app.post("/verify-recaptcha", async (req, res) => {
     return res.status(400).json({ verified: false, error: "Invalid JSON format" });
   }
 
-  console.log("📩 Parsed request body:", parsedBody);
+  console.log("✅ Parsed request body:", parsedBody);
 
   const token = parsedBody["g-recaptcha-response"];
-  if (!token) {
+  if (!token || token === "none" || token.trim() === "") {
+    console.error("⚠️ Missing or empty token:", token);
     return res.status(400).json({ verified: false, error: "Missing token" });
   }
 
@@ -44,20 +48,20 @@ app.post("/verify-recaptcha", async (req, res) => {
     );
 
     const result = googleResponse.data;
-    console.log("🔐 Google reCAPTCHA result:", result);
+    console.log("🔍 reCAPTCHA verification result:", result);
 
     if (result.success && result.score >= 0.5) {
       return res.json({ verified: true, score: result.score });
     } else {
       return res.json({
         verified: false,
-        score: result.score || null,
-        reason: result["error-codes"] || ["Low score or failed verification"],
+        score: result.score || 0,
+        reason: result["error-codes"] || ["Low score or other verification failure"],
       });
     }
   } catch (err) {
-    console.error("❌ Verification API error:", err.message);
-    return res.status(500).json({ verified: false, error: "Internal server error" });
+    console.error("❌ Error calling Google reCAPTCHA API:", err.message);
+    return res.status(500).json({ verified: false, error: "Internal verification error" });
   }
 });
 
@@ -66,7 +70,6 @@ app.get("/", (req, res) => {
   res.send("✅ reCAPTCHA verifier is running");
 });
 
-// Start server
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
