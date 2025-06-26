@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 3000;
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
 
 app.post("/verify-recaptcha", async (req, res) => {
+  console.log("🔍 Incoming request body:", req.body); // log what Marketo sends
   const token = req.body["g-recaptcha-response"];
 
   if (!token) {
