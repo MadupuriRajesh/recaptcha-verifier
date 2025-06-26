@@ -4,7 +4,8 @@ const dotenv = require("dotenv");
 
 dotenv.config();
 const app = express();
-app.use(express.json());
+app.use(express.json()); // Handles JSON
+app.use(express.urlencoded({ extended: true })); // Handles x-www-form-urlencoded
 
 const PORT = process.env.PORT || 3000;
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
@@ -39,12 +40,4 @@ app.post("/verify-recaptcha", async (req, res) => {
     console.error("Verification error:", error.message);
     res.status(500).json({ verified: false, error: "Internal server error" });
   }
-});
-
-app.get("/", (req, res) => {
-  res.send("reCAPTCHA verifier running!");
-});
-
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
 });
